@@ -9,5 +9,19 @@
   "start_url": "./index.html",
   "theme_color": "#4a7c59",
   "id": "com.entregas.app",
-  "description": "Aplicación de gestión de pedidos y alertas de entrega."
+  "description": "Aplicación de gestión de pedidos y alertas de entrega.",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/192/2838/2838895.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2838/2838895.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
 }
