@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recepción de Pedidos - Entregas</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- jsPDF & jsPDF-AutoTable for PDF Generation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.autotable.min.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f4f7f6',
+              100: '#e3ece9',
+              200: '#ca9b8',
+              500: '#4a7c59', // Muted Sage Green
+              600: '#3b6447',
+              700: '#2d4d36',
+            },
+            sand: {
+              50: '#faf8f5',
+              100: '#f3efe6',
+              200: '#e6ded0',
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-sand-50 text-slate-800 min-h-screen flex flex-col font-sans antialiased selection:bg-brand-100 selection:text-brand-700">
+
+  <!-- Header -->
+  <header class="bg-white border-b border-sand-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-2 cursor-pointer" onclick="navigateTo('home')">
+        <div class="p-2 bg-brand-50 text-brand-600 rounded-lg">
+          <i data-lucide="package-check" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <h1 class="text-base font-semibold leading-tight text-slate-900" id="companyHeaderName">Servicio de Entregas</h1>
+          <p class="text-xs text-slate-500">Gestión & Alertas de Pedidos</p>
+        </div>
+      </div>
+      <div id="connectionBadge" class="flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+        <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+        <span class="font-medium">BD Protegida</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Notification Banner/Permission Request -->
+  <div id="notifBanner" class="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-2 text-xs flex justify-between items-center hidden">
+    <span class="flex items-center gap-2">
+      <i data-lucide="bell-ring" class="w-4 h-4 text-amber-600"></i>
+      Activa las notificaciones para recibir alertas 24h, 6h y 2h antes.
+    </span>
+    <button onclick="requestNotificationPermission()" class="bg-amber-600 text-white px-2.5 py-1 rounded font-medium shadow-sm hover:bg-amber-700 transition">
+      Activar
+    </button>
+  </div>
+
+  <!-- Main Content Area -->
+  <main class="flex-1 max-w-xl w-full mx-auto p-4 pb-20">
+
+    <!-- PANTALLA PRINCIPAL -->
+    <section id="screen-home" class="space-y-6">
+      <!-- Welcome Card -->
+      <div class="bg-white rounded-2xl p-6 border border-sand-200 shadow-sm text-center">
+        <div class="w-16 h-16 bg-brand-50 text-brand-600 rounded-full flex items-center justify-center mx-auto mb-3">
+          <i data-lucide="truck" class="w-8 h-8"></i>
+        </div>
+        <h2 class="text-xl font-bold text-slate-900 mb-1" id="companyDisplay">Empresa de Envíos Express</h2>
+        <p class="text-sm text-slate-500 mb-6 max-w-xs mx-auto">Sincronización automática de alertas para entregas en tiempo record.</p>
+        
+        <div class="grid gap-3">
+          <button onclick="navigateTo('new-order')" class="w-full bg-brand-500 hover:bg-brand-600 text-white font-medium py-3.5 px-4 rounded-xl shadow-sm flex items-center justify-center gap-2 transition active:scale-[0.99]">
+            <i data-lucide="plus-circle" class="w-5 h-5"></i>
+            Ingresar Nuevo Pedido
+          </button>
+          
+          <button onclick="navigateTo('list-orders')" class="w-full bg-white hover:bg-sand-50 text-slate-700 font-medium py-3.5 px-4 rounded-xl border border-sand-200 shadow-sm flex items-center justify-center gap-2 transition active:scale-[0.99]">
+            <i data-lucide="clock" class="w-5 h-5 text-brand-500"></i>
+            Ver Pedidos Pendientes
+            <span id="pendingBadge" class="ml-auto bg-brand-100 text-brand-700 text-xs px-2 py-0.5 rounded-full font-bold">0</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Status Overview -->
+      <div class="grid grid-cols-2 gap-3">
+        <div class="bg-white p-4 rounded-xl border border-sand-200 flex items-center gap-3">
+          <div class="p-2.5 bg-blue-50 text-blue-600 rounded-lg">
+            <i data-lucide="calendar-days" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <p class="text-xs text-slate-500 font-medium">Entregas Hoy</p>
+            <p id="statToday" class="text-lg font-bold text-slate-800">0</p>
+          </div>
+        </div>
+        <div class="bg-white p-4 rounded-xl border border-sand-200 flex items-center gap-3">
+          <div class="p-2.5 bg-amber-50 text-amber-600 rounded-lg">
+            <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <p class="text-xs text-slate-500 font-medium">Urgentes (&lt;6h)</p>
+            <p id="statUrgent" class="text-lg font-bold text-slate-800">0</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- PDF & Backup Tools Section -->
+      <div class="bg-white rounded-xl p-4 border border-sand-200 shadow-sm space-y-3">
+        <div class="flex items-center gap-2 pb-2 border-b border-slate-100">
+          <i data-lucide="file-text" class="w-4 h-4 text-brand-500"></i>
+          <h3 class="text-xs font-semibold text-slate-600 uppercase tracking-wider">Reportes y Copias de Seguridad</h3>
+        </div>
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <button onclick="generateDailyPDF()" class="w-full bg-sand-100 hover:bg-sand-200 text-slate-800 text-xs font-medium py-2.5 px-3 rounded-lg flex items-center justify-center gap-2 transition">
+            <i data-lucide="file-down" class="w-4 h-4 text-slate-600"></i>
+            Generar PDF del Día
+          </button>
+          <button onclick="exportDatabaseBackup()" class="w-full bg-sand-100 hover:bg-sand-200 text-slate-800 text-xs font-medium py-2.5 px-3 rounded-lg flex items-center justify-center gap-2 transition">
+            <i data-lucide="download-cloud" class="w-4 h-4 text-slate-600"></i>
+            Guardar Copia BD
+          </button>
+        </div>
+
+        <label class="block w-full cursor-pointer">
+          <input type="file" id="importFileInput" accept=".json" class="hidden" onchange="importDatabaseBackup(event)">
+          <div class="w-full bg-white hover:bg-slate-50 border border-dashed border-sand-200 text-slate-500 hover:text-slate-700 text-xs py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition">
+            <i data-lucide="upload-cloud" class="w-4 h-4 text-slate-400"></i>
+            Restaurar Copia desde Archivo
+          </div>
+        </label>
+      </div>
+    </section>
+
+    <!-- PANTALLA INGRESO DE PEDIDO -->
+    <section id="screen-new-order" class="hidden space-y-5">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+          <i data-lucide="plus-circle" class="w-5 h-5 text-brand-500"></i>
+          Nuevo Pedido
+        </h2>
+        <button onclick="navigateTo('home')" class="text-xs font-medium text-slate-500 hover:text-slate-800 flex items-center gap-1 bg-white px-2.5 py-1.5 rounded-lg border border-sand-200 shadow-sm transition">
+          <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
+          Volver
+        </button>
+      </div>
+
+      <form id="orderForm" onsubmit="handleOrderSubmit(event)" class="bg-white rounded-2xl p-5 border border-sand-200 shadow-sm space-y-4">
+        
+        <!-- Cliente -->
+        <div>
+          <label class="block text-xs font-medium text-slate-700 mb-1">Nombre del Cliente *</label>
+          <div class="relative">
+            <input type="text" id="clientName" required placeholder="Ej: María García" 
+              class="w-full pl-9 pr-3 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition">
+            <i data-lucide="user" class="w-4 h-4 text-slate-400 absolute left-3 top-3"></i>
+          </div>
+        </div>
+
+        <!-- Tipo de Producto -->
+        <div>
+          <label class="block text-xs font-medium text-slate-700 mb-1">Tipo de Producto *</label>
+          <div class="relative">
+            <select id="productType" required 
+              class="w-full pl-9 pr-8 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl appearance-none focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition">
+              <option value="" disabled selected>Selecciona una opción...</option>
+              <option value="Topper">Topper</option>
+              <option value="Impresión Comestible">Impresión Comestible</option>
+              <option value="Impresión Documentos">Impresión Documentos</option>
+              <option value="Varios">Varios</option>
+            </select>
+            <i data-lucide="box" class="w-4 h-4 text-slate-400 absolute left-3 top-3"></i>
+            <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 absolute right-3 top-3 pointer-events-none"></i>
+          </div>
+        </div>
+
+        <!-- Descripción -->
+        <div>
+          <label class="block text-xs font-medium text-slate-700 mb-1">Descripción Breve</label>
+          <textarea id="productDescription" rows="2" placeholder="Detalles específicos (colores, cantidad, tema...)" 
+            class="w-full p-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition resize-none"></textarea>
+        </div>
+
+        <!-- Fecha y Hora -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-700 mb-1">Día de Entrega *</label>
+            <input type="date" id="deliveryDate" required 
+              class="w-full p-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition">
+          </div>
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label class="block text-xs font-medium text-slate-700">Hora de Entrega</label>
+              <label class="inline-flex items-center gap-1.5 cursor-pointer">
+                <input type="checkbox" id="noFixedTime" onchange="toggleFixedTime(this)" class="rounded text-brand-500 focus:ring-brand-500 w-3.5 h-3.5">
+                <span class="text-[11px] text-slate-500">Sin hora fija</span>
+              </label>
+            </div>
+            <input type="time" id="deliveryTime" 
+              class="w-full p-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition">
+          </div>
+        </div>
+
+        <div class="p-3 bg-brand-50 rounded-xl border border-brand-100 flex items-start gap-2.5 text-xs text-brand-700">
+          <i data-lucide="bell" class="w-4 h-4 text-brand-500 shrink-0 mt-0.5"></i>
+          <p id="notifExplanationText">Se programarán alertas automáticas 24 horas antes, 6 horas antes y 2 horas antes del momento de entrega.</p>
+        </div>
+
+        <!-- Submit Button -->
+        <div class="pt-2">
+          <button type="submit" class="w-full bg-brand-500 hover:bg-brand-600 text-white font-medium py-3.5 px-4 rounded-xl shadow-sm flex items-center justify-center gap-2 transition active:scale-[0.99]">
+            <i data-lucide="check-circle" class="w-5 h-5"></i>
+            Guardar Pedido y Regresar
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- PANTALLA LISTA DE PEDIDOS NO ENTREGADOS -->
+    <section id="screen-list-orders" class="hidden space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+          <i data-lucide="clock" class="w-5 h-5 text-brand-500"></i>
+          Pedidos Pendientes
+        </h2>
+        <button onclick="navigateTo('home')" class="text-xs font-medium text-slate-500 hover:text-slate-800 flex items-center gap-1 bg-white px-2.5 py-1.5 rounded-lg border border-sand-200 shadow-sm transition">
+          <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
+          Volver
+        </button>
+      </div>
+
+      <!-- Filtros rápidos -->
+      <div class="flex gap-2 overflow-x-auto pb-1 text-xs">
+        <button onclick="filterOrders('all')" id="filter-all" class="px-3 py-1.5 rounded-full bg-brand-500 text-white font-medium shadow-sm transition">Todos</button>
+        <button onclick="filterOrders('today')" id="filter-today" class="px-3 py-1.5 rounded-full bg-white text-slate-600 border border-sand-200 hover:bg-sand-50 transition">Para Hoy</button>
+        <button onclick="filterOrders('urgent')" id="filter-urgent" class="px-3 py-1.5 rounded-full bg-white text-slate-600 border border-sand-200 hover:bg-sand-50 transition">Próximos (&lt;6h)</button>
+      </div>
+
+      <!-- Container de Lista -->
+      <div id="ordersContainer" class="space-y-3">
+        <!-- Render dinámico aquí -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Notification Toast Container -->
+  <div id="toast" class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs px-4 py-2.5 rounded-full shadow-lg flex items-center gap-2 transition-all opacity-0 pointer-events-none z-50">
+    <i data-lucide="info" class="w-4 h-4 text-brand-200"></i>
+    <span id="toastMessage">Mensaje de notificación</span>
+  </div>
+
+  <script>
+    // --- PERSISTENT INDEXEDDB ENGINE ---
+    const DB_NAME = 'PedidosExpressDB';
+    const DB_VERSION = 1;
+    const STORE_NAME = 'pedidos';
+    let db = null;
+
+    function initDatabase() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onupgradeneeded = (e) => {
+          const dbInstance = e.target.result;
+          if (!dbInstance.objectStoreNames.contains(STORE_NAME)) {
+            const store = dbInstance.createObjectStore(STORE_NAME, { keyPath: 'id' });
+            store.createIndex('delivered', 'delivered', { unique: false });
+            store.createIndex('deliveryDate', 'deliveryDate', { unique: false });
+          }
+        };
+        request.onsuccess = (e) => {
+          db = e.target.result;
+          resolve(db);
+        };
+        request.onerror = (e) => reject(e.target.error);
+      });
+    }
+
+    function getAllOrdersFromDB() {
+      return new Promise((resolve, reject) => {
+        if (!db) return resolve([]);
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    function saveOrderToDB(order) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.put(order);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    function deleteOrderFromDB(id) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.delete(id);
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    // --- APPLICATION STATE ---
+    let currentFilter = 'all';
+
+    // Initialize App
+    document.addEventListener('DOMContentLoaded', async () => {
+      await initDatabase();
+      lucide.createIcons();
+      setTodayAsMinDate();
+      await updateHomeStats();
+      checkNotificationPermission();
+
+      // Background notification checker interval
+      setInterval(checkAndSendNotifications, 60000);
+      checkAndSendNotifications();
+    });
+
+    // --- NAVIGATION ---
+    async function navigateTo(screenId) {
+      document.getElementById('screen-home').classList.add('hidden');
+      document.getElementById('screen-new-order').classList.add('hidden');
+      document.getElementById('screen-list-orders').classList.add('hidden');
+
+      document.getElementById(`screen-${screenId}`).classList.remove('hidden');
+
+      if (screenId === 'home') {
+        await updateHomeStats();
+      } else if (screenId === 'list-orders') {
+        await renderOrdersList();
+      }
+      window.scrollTo(0, 0);
+    }
+
+    // Set Date Picker default to Today
+    function setTodayAsMinDate() {
+      const today = new Date().toISOString().split('T')[0];
+      const dateInput = document.getElementById('deliveryDate');
+      dateInput.min = today;
+      dateInput.value = today;
+    }
+
+    // Toggle Fixed Time vs Hourly Notification
+    function toggleFixedTime(checkbox) {
+      const timeInput = document.getElementById('deliveryTime');
+      const explanation = document.getElementById('notifExplanationText');
+      if (checkbox.checked) {
+        timeInput.value = '';
+        timeInput.disabled = true;
+        timeInput.classList.add('opacity-50', 'bg-slate-100');
+        explanation.innerText = "Al no tener hora fija, se enviará una notificación cada hora el día de la entrega hasta que se marque como completado.";
+      } else {
+        timeInput.disabled = false;
+        timeInput.classList.remove('opacity-50', 'bg-slate-100');
+        explanation.innerText = "Se programarán alertas automáticas 24 horas antes, 6 horas antes y 2 horas antes del momento de entrega.";
+      }
+    }
+
+    // --- ORDER HANDLING ---
+    async function handleOrderSubmit(e) {
+      e.preventDefault();
+
+      const clientName = document.getElementById('clientName').value.trim();
+      const productType = document.getElementById('productType').value;
+      const productDescription = document.getElementById('productDescription').value.trim();
+      const deliveryDate = document.getElementById('deliveryDate').value;
+      const noFixedTime = document.getElementById('noFixedTime').checked;
+      const deliveryTime = noFixedTime ? null : document.getElementById('deliveryTime').value;
+
+      if (!clientName || !productType || !deliveryDate) {
+        showToast("Por favor completa los campos obligatorios.");
+        return;
+      }
+
+      const newOrder = {
+        id: Date.now().toString(),
+        clientName,
+        productType,
+        productDescription,
+        deliveryDate,
+        deliveryTime: noFixedTime ? 'Sin hora fija' : deliveryTime,
+        noFixedTime,
+        delivered: false,
+        createdAt: new Date().toISOString(),
+        notified24h: false,
+        notified6h: false,
+        notified2h: false,
+        lastHourlyNotif: null
+      };
+
+      await saveOrderToDB(newOrder);
+
+      // Reset form
+      document.getElementById('orderForm').reset();
+      document.getElementById('noFixedTime').checked = false;
+      toggleFixedTime(document.getElementById('noFixedTime'));
+      setTodayAsMinDate();
+
+      showToast("¡Pedido guardado exitosamente!");
+      navigateTo('home');
+    }
+
+    // --- LIST RENDER & FILTERS ---
+    async function renderOrdersList() {
+      const container = document.getElementById('ordersContainer');
+      const allOrders = await getAllOrdersFromDB();
+      let orders = allOrders.filter(o => !o.delivered);
+
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      if (currentFilter === 'today') {
+        orders = orders.filter(o => o.deliveryDate === todayStr);
+      } else if (currentFilter === 'urgent') {
+        const now = new Date();
+        orders = orders.filter(o => {
+          if (o.deliveryDate !== todayStr) return false;
+          if (o.noFixedTime) return true;
+          const [hours, minutes] = o.deliveryTime.split(':');
+          const delivDate = new Date();
+          delivDate.setHours(hours, minutes, 0, 0);
+          const diffHours = (delivDate - now) / (1000 * 60 * 60);
+          return diffHours > 0 && diffHours <= 6;
+        });
+      }
+
+      // Ordenar por fecha y hora
+      orders.sort((a, b) => {
+        if (a.deliveryDate !== b.deliveryDate) {
+          return a.deliveryDate.localeCompare(b.deliveryDate);
+        }
+        if (a.noFixedTime) return -1;
+        if (b.noFixedTime) return 1;
+        return a.deliveryTime.localeCompare(b.deliveryTime);
+      });
+
+      if (orders.length === 0) {
+        container.innerHTML = `
+          <div class="bg-white rounded-xl p-8 border border-sand-200 text-center space-y-2">
+            <i data-lucide="inbox" class="w-10 h-10 text-slate-300 mx-auto"></i>
+            <p class="text-sm font-medium text-slate-600">No hay pedidos pendientes</p>
+            <p class="text-xs text-slate-400">Todos los pedidos han sido entregados o no hay registros.</p>
+          </div>
+        `;
+        lucide.createIcons();
+        return;
+      }
+
+      container.innerHTML = orders.map(order => {
+        const isToday = order.deliveryDate === todayStr;
+        const descHtml = order.productDescription ? '<p class="text-xs text-slate-600 bg-slate-50 p-2 rounded-lg border border-slate-100">' + escapeHtml(order.productDescription) + '</p>' : '';
+
+        return `
+          <div class="bg-white rounded-xl p-4 border border-sand-200 shadow-sm hover:border-brand-200 transition space-y-3">
+            <div class="flex justify-between items-start gap-2">
+              <div>
+                <span class="inline-block px-2 py-0.5 text-[10px] font-bold rounded-full bg-sand-100 text-slate-700 border border-sand-200 mb-1">
+                  ${escapeHtml(order.productType)}
+                </span>
+                <h3 class="text-sm font-bold text-slate-900">${escapeHtml(order.clientName)}</h3>
+              </div>
+              <span class="text-xs font-semibold px-2 py-1 rounded-lg ${isToday ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-slate-100 text-slate-600'}">
+                ${formatDate(order.deliveryDate)}
+              </span>
+            </div>
+
+            ${descHtml}
+
+            <div class="flex items-center justify-between text-xs text-slate-500 pt-1">
+              <span class="flex items-center gap-1 font-medium text-brand-700">
+                <i data-lucide="clock" class="w-3.5 h-3.5"></i>
+                ${order.noFixedTime ? 'Cualquier hora del día' : escapeHtml(order.deliveryTime) + ' hrs'}
+              </span>
+
+              <div class="flex items-center gap-2">
+                <button onclick="markAsDelivered('${order.id}')" class="bg-brand-50 hover:bg-brand-100 text-brand-700 px-2.5 py-1 rounded-lg font-medium border border-brand-200 transition flex items-center gap-1">
+                  <i data-lucide="check" class="w-3.5 h-3.5"></i> Entregado
+                </button>
+                <button onclick="confirmDeleteOrder('${order.id}')" class="text-slate-400 hover:text-red-500 p-1 transition">
+                  <i data-lucide="trash-2" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      lucide.createIcons();
+    }
+
+    function filterOrders(type) {
+      currentFilter = type;
+      ['all', 'today', 'urgent'].forEach(t => {
+        const btn = document.getElementById(`filter-${t}`);
+        if (t === type) {
+          btn.className = 'px-3 py-1.5 rounded-full bg-brand-500 text-white font-medium shadow-sm transition';
+        } else {
+          btn.className = 'px-3 py-1.5 rounded-full bg-white text-slate-600 border border-sand-200 hover:bg-sand-50 transition';
+        }
+      });
+      renderOrdersList();
+    }
+
+    async function markAsDelivered(id) {
+      const orders = await getAllOrdersFromDB();
+      const order = orders.find(o => o.id === id);
+      if (order) {
+        order.delivered = true;
+        await saveOrderToDB(order);
+        showToast("Pedido marcado como entregado.");
+        await renderOrdersList();
+        await updateHomeStats();
+      }
+    }
+
+    async function confirmDeleteOrder(id) {
+      if (confirm("¿Estás seguro de eliminar este pedido?")) {
+        await deleteOrderFromDB(id);
+        showToast("Pedido eliminado.");
+        await renderOrdersList();
+        await updateHomeStats();
+      }
+    }
+
+    // --- HOME STATS ---
+    async function updateHomeStats() {
+      const allOrders = await getAllOrdersFromDB();
+      const pending = allOrders.filter(o => !o.delivered);
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      const todayOrders = pending.filter(o => o.deliveryDate === todayStr);
+      
+      const now = new Date();
+      const urgentOrders = pending.filter(o => {
+        if (o.deliveryDate !== todayStr) return false;
+        if (o.noFixedTime) return true;
+        const [hours, minutes] = o.deliveryTime.split(':');
+        const delivDate = new Date();
+        delivDate.setHours(hours, minutes, 0, 0);
+        const diffHours = (delivDate - now) / (1000 * 60 * 60);
+        return diffHours > 0 && diffHours <= 6;
+      });
+
+      document.getElementById('pendingBadge').innerText = pending.length;
+      document.getElementById('statToday').innerText = todayOrders.length;
+      document.getElementById('statUrgent').innerText = urgentOrders.length;
+    }
+
+    // --- PDF GENERATION ENGINE ---
+    async function generateDailyPDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+
+      const allOrders = await getAllOrdersFromDB();
+      const todayStr = new Date().toISOString().split('T')[0];
+      const todayOrders = allOrders.filter(o => o.deliveryDate === todayStr);
+
+      if (todayOrders.length === 0) {
+        showToast("No hay pedidos registrados para el día de hoy.");
+        return;
+      }
+
+      const companyName = document.getElementById('companyDisplay').innerText;
+
+      // Header PDF
+      doc.setFontSize(16);
+      doc.setTextColor(45, 77, 54);
+      doc.text(companyName, 14, 18);
+
+      doc.setFontSize(11);
+      doc.setTextColor(100);
+      doc.text(`Reporte de Entregas del Día: ${formatDate(todayStr)}`, 14, 25);
+
+      const tableData = todayOrders.map((o, idx) => [
+        idx + 1,
+        o.clientName,
+        o.productType,
+        o.productDescription || '-',
+        o.noFixedTime ? 'Cualquier hora' : o.deliveryTime + ' hrs',
+        o.delivered ? 'Entregado' : 'Pendiente'
+      ]);
+
+      doc.autoTable({
+        startY: 32,
+        head: [['#', 'Cliente', 'Producto', 'Descripción', 'Hora', 'Estado']],
+        body: tableData,
+        headStyles: { fillColor: [74, 124, 89] },
+        alternateRowStyles: { fillColor: [244, 247, 246] },
+        styles: { fontSize: 9 }
+      });
+
+      doc.save(`Entregas_${todayStr}.pdf`);
+      showToast("PDF generado e iniciado descarga.");
+    }
+
+    // --- DATABASE BACKUP EXPORT & IMPORT ---
+    async function exportDatabaseBackup() {
+      const allOrders = await getAllOrdersFromDB();
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(allOrders, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `CopiaBD_Pedidos_${new Date().toISOString().split('T')[0]}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      showToast("Copia de seguridad guardada en descargas.");
+    }
+
+    function importDatabaseBackup(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const importedOrders = JSON.parse(e.target.result);
+          if (Array.isArray(importedOrders)) {
+            for (const order of importedOrders) {
+              await saveOrderToDB(order);
+            }
+            showToast("Base de datos restaurada con éxito.");
+            await updateHomeStats();
+            if (!document.getElementById('screen-list-orders').classList.contains('hidden')) {
+              await renderOrdersList();
+            }
+          }
+        } catch (err) {
+          showToast("Error al leer el archivo de copia.");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // --- BACKGROUND NOTIFICATIONS ENGINE ---
+    function checkNotificationPermission() {
+      if ("Notification" in window) {
+        if (Notification.permission !== "granted" && Notification.permission !== "denied") {
+          document.getElementById('notifBanner').classList.remove('hidden');
+        }
+      }
+    }
+
+    function requestNotificationPermission() {
+      if ("Notification" in window) {
+        Notification.requestPermission().then(permission => {
+          if (permission === "granted") {
+            document.getElementById('notifBanner').classList.add('hidden');
+            showToast("Notificaciones activadas.");
+          }
+        });
+      }
+    }
+
+    async function checkAndSendNotifications() {
+      const allOrders = await getAllOrdersFromDB();
+      const pending = allOrders.filter(o => !o.delivered);
+      const now = new Date();
+
+      for (let order of pending) {
+        let updated = false;
+
+        if (order.noFixedTime) {
+          // Check Hourly notifications on Delivery Date
+          const [year, month, day] = order.deliveryDate.split('-');
+          const delivDate = new Date(year, month - 1, day);
+
+          if (isSameDay(now, delivDate)) {
+            const lastNotif = order.lastHourlyNotif ? new Date(order.lastHourlyNotif) : null;
+            if (!lastNotif || (now - lastNotif) >= 3600000) { // 1 Hour
+              sendNotification(`Entrega Pendiente Hoy`, `Recordatorio: Tienes una entrega para ${order.clientName} (${order.productType}) programada para hoy.`);
+              order.lastHourlyNotif = now.toISOString();
+              updated = true;
+            }
+          }
+        } else if (order.deliveryTime) {
+          const [year, month, day] = order.deliveryDate.split('-');
+          const [hours, minutes] = order.deliveryTime.split(':');
+          const targetDate = new Date(year, month - 1, day, hours, minutes);
+
+          const diffMs = targetDate - now;
+          const diffHours = diffMs / (1000 * 60 * 60);
+
+          // 24 Hours Alert
+          if (diffHours <= 24 && diffHours > 23 && !order.notified24h) {
+            sendNotification(`Entrega Mañana (24h)`, `Pedido para ${order.clientName} de ${order.productType} programado para mañana a las ${order.deliveryTime}.`);
+            order.notified24h = true;
+            updated = true;
+          }
+
+          // 6 Hours Alert
+          if (diffHours <= 6 && diffHours > 5 && !order.notified6h) {
+            sendNotification(`Entrega en 6 Horas`, `Alerta: Falta poco para entregar pedido a ${order.clientName} (${order.productType}).`);
+            order.notified6h = true;
+            updated = true;
+          }
+
+          // 2 Hours Alert
+          if (diffHours <= 2 && diffHours > 0 && !order.notified2h) {
+            sendNotification(`Entrega Urgente (2h)`, `Urgente: Entrega pactada con ${order.clientName} en 2 horas (${order.deliveryTime}).`);
+            order.notified2h = true;
+            updated = true;
+          }
+        }
+
+        if (updated) {
+          await saveOrderToDB(order);
+        }
+      }
+    }
+
+    function sendNotification(title, body) {
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification(title, { body, icon: 'https://cdn-icons-png.flaticon.com/512/2838/2838895.png' });
+      }
+    }
+
+    // --- UTILS ---
+    function formatDate(dateStr) {
+      if (!dateStr) return '';
+      const [year, month, day] = dateStr.split('-');
+      return `${day}/${month}/${year}`;
+    }
+
+    function isSameDay(d1, d2) {
+      return d1.getFullYear() === d2.getFullYear() &&
+             d1.getMonth() === d2.getMonth() &&
+             d1.getDate() === d2.getDate();
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/[&<>'"]/g, 
+        tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+      );
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toastMessage').innerText = msg;
+      toast.classList.remove('opacity-0', 'pointer-events-none');
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'pointer-events-none');
+      }, 3000);
+    }
+  </script>
+</body>
+</html>
