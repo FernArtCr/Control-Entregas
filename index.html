@@ -4,6 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Recepción de Pedidos - Entregas</title>
+  
+  <!-- Enlace al Manifest para PWABuilder -->
+  <link rel="manifest" href="manifest.json">
+  
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- jsPDF & jsPDF-AutoTable for PDF Generation -->
@@ -660,7 +664,7 @@
 
     function requestNotificationPermission() {
       if ("Notification" in window) {
-        Notification.requestPermission().then(permission => {
+        Notification.permission.then(permission => {
           if (permission === "granted") {
             document.getElementById('notifBanner').classList.add('hidden');
             showToast("Notificaciones activadas.");
