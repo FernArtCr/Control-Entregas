@@ -1,0 +1,13 @@
+{
+  "background_color": "#faf8f5",
+  "dir": "ltr",
+  "display": "standalone",
+  "name": "Servicio de Entregas",
+  "orientation": "any",
+  "scope": "/",
+  "short_name": "Entregas",
+  "start_url": "./index.html",
+  "theme_color": "#4a7c59",
+  "id": "com.entregas.app",
+  "description": "Aplicación de gestión de pedidos y alertas de entrega."
+}
